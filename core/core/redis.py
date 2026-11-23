@@ -15,7 +15,7 @@ def redis_connect(db_no):
 	try:
 		if settings.ONLINE_REDIS:
 			#mode for online
-			redis_service=redis.Redis(host=settings.REDIS_SETTINGS['REDIS_ONLINE_IP'],port=settings.REDIS_SETTINGS['REDIS_ONLINE_PORT'],decode_responses=True,username="default",password= settings.REDIS_SETTINGS['ONLINE_PASS'],)
+			redis_service=redis.Redis(host=settings.REDIS_SETTINGS['REDIS_ONLINE_IP'],port=settings.REDIS_SETTINGS['REDIS_ONLINE_PORT'],decode_responses=True,username="default",password= settings.REDIS_SETTINGS['ONLINE_PASS'],ssl=True)
 		else:
 			#mode for offline
 			redis_service=redis.Redis(host=settings.REDIS_SETTINGS['REDIS_IP'], port=6379, db=db_no, decode_responses=True)

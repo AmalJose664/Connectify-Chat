@@ -87,7 +87,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
 		#join
 		
-		print("bro joining to room=> ",self.room_group_name)
+		print("joining to room=> ",self.room_group_name)
 		await self.channel_layer.group_add(online_tracking_group, self.channel_name)
 		await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 		
@@ -504,7 +504,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 				self.room_group_name = f'{request_user_room}'
 
 			else:
-				print("Creating new room  /❌/❌/❌/❌/❌/❌/❌/  Switched to notify mode")
+				print("Creating new room  --  Switched to notify mode")
 		
 				
 

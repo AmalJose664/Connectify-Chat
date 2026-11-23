@@ -46,7 +46,7 @@ def pymongo_connect():
 			is_online = True
 		if "localhost" in uri or "127.0.0.1" in uri:
 			is_online = False
-		print("Pinged your deployment. You successfully connected to MongoDB!🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊 ", "Mongo server Online-> ", is_online)
+		print("Successfully connected to MongoDB", "Mongo server Online-> ", is_online)
 	except Exception as e:
 		print(e)
 	return mydb

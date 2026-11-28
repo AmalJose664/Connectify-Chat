@@ -1,110 +1,80 @@
 import axios from 'axios'
-import {useAuthStore} from '../store/useAuthStore'
+import { useAuthStore } from '../store/useAuthStore'
 
+//------------------------------------------------------------------
+// Backend configuration
 
-export let ip = import.meta.env.VITE_API_BASE_URL
-const overWriteProtocol = import.meta.env.VITE_OVERWRITE_PROTOCOL === 'true'
+const RAW_API_URL = import.meta.env.VITE_API_BASE_URL
 
-export const proto = overWriteProtocol || location.protocol !== 'http:' ? 'https' : 'http';
-export let wsProto = overWriteProtocol || location.protocol !== 'http:' ? "wss" : "ws"
-if (proto == 'https'){
-	//ip = '8c64-2403-a080-411-fc81-8901-3702-f242-c3e3.ngrok-free.app'
-}else{
-	ip=ip+":8000"
+if (!RAW_API_URL) {
+    throw new Error('VITE_API_BASE_URL is not set (e.g. http://localhost:8000)')
 }
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-const axiosInstance = axios.create({
-	baseURL: `${proto}://${ip}/api/friends`,
-	headers:{
-		Authorization: localStorage.getItem('access_token') || ''
-	},
-	withCredentials:true
-})
 
-axiosInstance.interceptors.request.use( config => {
-	const token = localStorage.getItem('access_token') || null;
-	if (token){
-		config.headers.Authorization = `Bearer ${token || ""}`
-	}
-	return config
+// Full URL with scheme, no trailing slash. Used only by axios in this file.
+const API_BASE_URL = RAW_API_URL.replace(/\/+$/, '')
 
-})
+const backendUrl = new URL(API_BASE_URL)
 
-export const axiosApiInstance = axiosInstance
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-export const axiosAuthInstance = axios.create({
-	baseURL: `${proto}://${ip}/api/auth`,
-	
-	withCredentials: true
-})
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-export const axiosMessageInstance = axios.create({
-	baseURL: `${proto}://${ip}/api/messages`,
-	headers: {
-		Authorization: localStorage.getItem('access_token') || ''
-	},
-	withCredentials: true
-})
-axiosMessageInstance.interceptors.request.use(config => {
-	const token = localStorage.getItem('access_token') || null;
-	if (token) {
-		config.headers.Authorization = `Bearer ${token || ""}`
-	}
-	return config
+export const proto = backendUrl.protocol.replace(':', '')      // http | https
+export const wsProto = proto === 'https' ? 'wss' : 'ws'        // ws | wss
 
-})
-axiosMessageInstance.interceptors.response.use(response => response, (error) => {
-	if (error.status === 401 && error.response.data.code == "token_not_valid") {
-		const logout = useAuthStore.getState().axiosLogout
-		localStorage.removeItem('access_token');
-		console.log("should log out");
-		
-		logout()
-	}
-	return Promise.reject(error);
-})
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-export const axiosGroupsInstance = axios.create({
-	baseURL: `${proto}://${ip}/api/groups`,
-	headers: {
-		Authorization: localStorage.getItem('access_token') || ''
-	},
-	withCredentials: true
-})
+// Host only, NO scheme (e.g. localhost:8000 or xyz.onrender.com).
+// Existing code builds `${wsProto}://${ip}/...`, so this now gives a valid URL.
+export const ip = backendUrl.host + backendUrl.pathname.replace(/\/+$/, '')
 
-axiosGroupsInstance.interceptors.request.use(config => {
-	const token = localStorage.getItem('access_token') || null;
-	if (token) {
-		config.headers.Authorization = `Bearer ${token || ""}`
-	}
-	return config
+//------------------------------------------------------------------
+// Instance factory
 
-})
-axiosGroupsInstance.interceptors.response.use(response => response, (error) => {
-	if (error.status === 401 && error.response.data.code == "token_not_valid") {
-		const logout = useAuthStore.getState().axiosLogout
-		localStorage.removeItem('access_token');
-		console.log("should log out");
+const attachToken = (config) => {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+}
 
-		logout()
-	}
-	return Promise.reject(error);
-})
+const createInstance = (path, { auth = true } = {}) => {
+    const instance = axios.create({
+        baseURL: `${API_BASE_URL}${path}`,
+        withCredentials: true,
+    })
+    if (auth) instance.interceptors.request.use(attachToken)
+    return instance
+}
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-export const axiosSpecialAuthInstance = axios.create({
-	baseURL: `${proto}://${ip}/api/auth`,
-	headers: {
-		Authorization: localStorage.getItem('access_token') || ''
-	},
-	withCredentials: true
-})
+const handleUnauthorized = (instance) => {
+    instance.interceptors.response.use(
+        (response) => response,
+        (error) => {
+            if (
+                error.response?.status === 401 &&
+                error.response?.data?.code === 'token_not_valid'
+            ) {
+                localStorage.removeItem('access_token')
+                console.log('should log out')
+                useAuthStore.getState().axiosLogout()
+            }
+            return Promise.reject(error)
+        }
+    )
+}
 
-axiosSpecialAuthInstance.interceptors.request.use(config => {
-	const token = localStorage.getItem('access_token') || null;
-	if (token) {
-		config.headers.Authorization = `Bearer ${token || ""}`
-	}
-	return config
+//------------------------------------------------------------------
+// Instances (same names as before)
 
+export const axiosApiInstance = createInstance('/api/friends')
+export const axiosAuthInstance = createInstance('/api/auth', { auth: false })
+export const axiosMessageInstance = createInstance('/api/messages')
+export const axiosGroupsInstance = createInstance('/api/groups')
+export const axiosSpecialAuthInstance = createInstance('/api/auth')
+
+handleUnauthorized(axiosMessageInstance)
+handleUnauthorized(axiosGroupsInstance)
+
+//------------------------------------------------------------------
+// Admin API
+
+export const axiosAdminInstance = axios.create({
+    baseURL: import.meta.env.VITE_API_ADMIN_URL,
+    withCredentials: true,
 })
